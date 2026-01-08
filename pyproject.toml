@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bowanglab"
+version = "0.1.0"
+description = "Bowang lab test code"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy",
+  "jax[cpu]",
+  "dm-haiku",
+  # If you already installed nucleotide-transformer from GitHub manually, you can omit this line.
+  # Otherwise, keep it:
+  "nucleotide-transformer @ git+https://github.com/instadeepai/nucleotide-transformer.git",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

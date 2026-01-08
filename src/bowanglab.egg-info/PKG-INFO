@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: bowanglab
+Version: 0.1.0
+Summary: Bowang lab test code
+Requires-Python: >=3.11
+Requires-Dist: numpy
+Requires-Dist: jax[cpu]
+Requires-Dist: dm-haiku
+Requires-Dist: nucleotide-transformer@ git+https://github.com/instadeepai/nucleotide-transformer.git
