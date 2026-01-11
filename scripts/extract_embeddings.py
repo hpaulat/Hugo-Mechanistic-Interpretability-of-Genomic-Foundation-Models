@@ -40,7 +40,28 @@ print("Average sequence length:", average_length)
 maximum_length = max(len(seq) for seq in lc_sequences)
 print("Maximum sequence length:", maximum_length)
 
+# --- Import Tokenizer and Model ---
+tokenizer = AutoTokenizer.from_pretrained("InstaDeepAI/nucleotide-transformer-v2-500m-multi-species", trust_remote_code=True)
+model = AutoModelForMaskedLM.from_pretrained("InstaDeepAI/nucleotide-transformer-v2-500m-multi-species", trust_remote_code=True)
 
+# length of tokens which the input sequences are padded
+max_length = (tokenizer.model_max_length // maximum_length) + 1
+
+# tokenize
+tokens_ids = tokenizer.batch_encode_plus(lc_sequences, return_tensors="pt", padding="max_length", max_length = max_length)["input_ids"]
+print("Tokens shape:", tokens_ids.shape, "\n")
+
+# attention masks
+attention_mask = tokens_ids != tokenizer.pad_token_id
+print("Attention Mask", attention_mask)
+
+torch_outs = model(
+    tokens_ids,
+    attention_mask=attention_mask,  # prevents attention to padding tokens
+    output_attentions = True,
+    encoder_attention_mask=attention_mask,
+    output_hidden_states=True       # to get all layer embeddings
+)
 
 
 
