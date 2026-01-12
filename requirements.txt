@@ -1,0 +1,41 @@
+# Core ML / DL
+torch==2.9.1
+transformers==4.57.3
+tokenizers==0.22.2
+accelerate==1.12.0
+peft==0.18.1
+safetensors==0.7.0
+
+# Scientific computing
+numpy==2.4.0
+scipy==1.16.3
+pandas==2.3.3
+scikit-learn==1.8.0
+
+# Genomics / variant handling
+pyfaidx==0.9.0.3
+pyliftover==0.4.1
+pyranges==0.1.4
+gffutils==0.13
+vcfpy==0.14.2
+mavehgvs==0.7.0
+kipoi==0.8.6
+kipoi-utils==0.7.7
+kipoiseq==0.7.1
+ncls==0.0.70
+sorted-nearest==0.0.41
+
+# Hugging Face / IO
+huggingface-hub==0.36.0
+fsspec==2026.1.0
+requests==2.32.5
+tqdm==4.67.1
+pyyaml==6.0.3
+
+# Visualization (optional but commonly used)
+matplotlib==3.10.8
+
+# Utilities
+joblib==1.5.3
+regex==2025.11.3
+rich==14.2.0
