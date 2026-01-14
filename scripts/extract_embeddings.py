@@ -24,7 +24,7 @@ os.chdir(GENOMIC_FM_DIR)
 from src.dataloader.data_wrapper import RealClinVar
 
 # --- Load data ---
-Seq_length = 1024   # length of sequences to extract from ClinVar records
+Seq_length = 3000   # length of sequences to extract from ClinVar records
 
 print("\n[2/6] Loading ClinVar data via RealClinVar...")
 loader = RealClinVar(num_records=151, all_records=False)    # change number of records based on needs
@@ -65,13 +65,15 @@ t0 = time.time()
 
 all_sequences = lc_reference_sequences + lc_alternative_sequences
 n = len(lc_reference_sequences)
+max_length = Seq_length/6 + 5
+max_length = min(int(max_length), tokenizer.model_max_length)
 
 enc = tokenizer(
     all_sequences,
     return_tensors="pt",
     padding="max_length",
     truncation=True,
-    max_length=Seq_length,
+    max_length=max_length,
 )
 
 input_ids = enc["input_ids"]           # (2N, L)
@@ -88,17 +90,27 @@ print("\n[6/6] Running model inference and computing pooled embeddings...")
 t0 = time.time()
 
 batch_size = 2
-all_embeds = []
 
-model.eval()
+layers = [1, 3, 5, 9, 12, 15, 18, 22, 25, 28]  # 0..28 indexing
+layer_to_embeds = {l: [] for l in layers}
 
-with torch.no_grad():
+use_amp = (device.type == "cuda"
+           )
+with torch.inference_mode():
     for i in range(0, input_ids.size(0), batch_size):
         batch_input_ids = input_ids[i:i+batch_size].to(device)
         batch_mask = attention_mask[i:i+batch_size].to(device)
 
-        # Optional but recommended: mixed precision on GPU
-        with torch.autocast(device_type="cuda", dtype=torch.float16):
+        if use_amp:
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                outputs = model(
+                    input_ids=batch_input_ids,
+                    attention_mask=batch_mask,
+                    output_hidden_states=True,
+                    output_attentions=False,
+                    return_dict=True,
+                )
+        else:
             outputs = model(
                 input_ids=batch_input_ids,
                 attention_mask=batch_mask,
@@ -107,11 +119,13 @@ with torch.no_grad():
                 return_dict=True,
             )
 
-        last_h = outputs.hidden_states[-1]                 # (B, L, D)
-        mask = batch_mask.unsqueeze(-1).to(last_h.dtype)   # (B, L, 1)
-        pooled = (last_h * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)  # (B, D)
+        mask = batch_mask.unsqueeze(-1).to(dtype = outputs.hidden_states[0].dtype)   # (B, L, 1)
+        denom = mask.sum(dim=1).clamp(min=1e-9)                             # (B, 1)
 
-        all_embeds.append(pooled.float().cpu())  # keep saved embeddings in float32 for stability
+        for l in layers:
+            h = outputs.hidden_states[l]                 # (B, L, D)
+            pooled = (h * mask).sum(dim=1) / denom       # (B, D)
+            layer_to_embeds[l].append(pooled.float().cpu())
 
         if (i // batch_size) % 10 == 0:
             allocated = torch.cuda.memory_allocated() / (1024**3)
@@ -119,39 +133,24 @@ with torch.no_grad():
             print(f"  - batch {i//batch_size:04d} | processed {i+len(batch_input_ids)}/{input_ids.size(0)} "
                   f"| GPU allocated {allocated:.1f} GiB, reserved {reserved:.1f} GiB")
             
-seq_embeddings = torch.cat(all_embeds, dim=0)  # (2N, D)      
+layer_to_seq = {l: torch.cat(v, dim=0) for l, v in layer_to_embeds.items()}  # each (2N, 1024)
+seq_embeddings_by_layer = {l: layer_to_seq[l] for l in layers}  # each (2N, 1024)
 
-n = len(lc_reference_sequences)
-ref_seq_embeddings = seq_embeddings[:n]                   # (N, D)
-alt_seq_embeddings = seq_embeddings[n:]                   # (N, D)
-delta_seq_embeddings = alt_seq_embeddings - ref_seq_embeddings
-
-print(f"  - pooled seq embeddings shape (REF): {tuple(ref_seq_embeddings.shape)}")
-print(f"  - pooled seq embeddings shape (ALT): {tuple(alt_seq_embeddings.shape)}")
-print(f"  - pooled seq embeddings shape (ALT-REF): {tuple(delta_seq_embeddings.shape)}")
-print(f"  - inference+pooling done in {time.time() - t0:.2f}s")
-
-# --- Save ---
 print("\nSaving embeddings to disk...")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-save_path = DATA_DIR / f"clinvar_embeddings__n{n}__len{Seq_length}__layer-1__maskedmean.pt"
-
 payload = {
     "model_name": MODEL_NAME,
-    "seq_len": Seq_length,
+    "bp_window_len": Seq_length,
+    "token_max_length": int(input_ids.shape[1]),
     "pooling": "masked_mean",
-    "layer": -1,
+    "layers": layers,
     "labels": lc_labels,
-    "ref_embeddings": ref_seq_embeddings.cpu(),
-    "alt_embeddings": alt_seq_embeddings.cpu(),
-    "delta_embeddings": delta_seq_embeddings.cpu(),
-    # optional (comment out if you want smaller files)
-    "ref_sequences": lc_reference_sequences,
-    "alt_sequences": lc_alternative_sequences,
+    "embeddings_by_layer": seq_embeddings_by_layer,  # (2N, 1024) per layer
 }
-
+save_path = DATA_DIR / f"clinvar_pooled_embeddings__n{n}__bp{Seq_length}__tok{input_ids.shape[1]}__layers10.pt"
 torch.save(payload, save_path)
 
-print(f"  - saved: {save_path}")
-print("Done.\n")
+
+print(f"  - saved to: {save_path}")
+print(f"  - done in {time.time() - t0:.2f}s")
