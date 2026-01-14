@@ -1,4 +1,0 @@
-numpy
-jax[cpu]
-dm-haiku
-nucleotide-transformer@ git+https://github.com/instadeepai/nucleotide-transformer.git
