@@ -4,13 +4,14 @@ import os
 import time
 import torch
 import numpy as np
+from metrics import plot_layer_performance
 
 from sklearn import linear_model
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import LeaveOneOut
 
@@ -41,24 +42,81 @@ n = len(labels)  # number of variants
 # Construct Logistic Regression Classifier Pipeline
 clf = Pipeline([
     ("scaler", StandardScaler()),
-    ("PCA", PCA(n_components=50)),  # optional: reduce dimensionality
+    #("PCA", PCA(n_components=50)),  # optional: reduce dimensionality
     ("lr", LogisticRegression(max_iter=5000, class_weight="balanced"))
 ])
 
 # Analyze Each Layer and Conduct Stratified K-Fold Cross-Validation
-print("\nPerforming Stratified K-Fold Cross-Validation for each layer...")
+print("\nPerforming Stratified K-Fold Cross-Validation for each layer on DELTA EMBEDDINGS...")
+layers = [1, 3, 5, 9, 12, 15, 18, 22, 25, 28]  # 0..28 indexing
+aucs = []
+
+for layer in layers:
+    E = payload["embeddings_by_layer"][layer]  # shape (2N, 1024), torch.Tensor
+
+    ref = E[:n].numpy()      # (N, 1024)s
+    alt = E[n:].numpy()      # (N, 1024)
+    X = alt - ref            # (N, 1024)    Compute deltas
+
+    # Binary classification: Class 1 vs Class 5
+    mask = np.isin(labels, ["Class 1", "Class 2", "Class 4", "Class 5"])
+    X_bin = X[mask]
+    y_bin = (labels[mask] == ("Class 5" or "Class 4")).astype(int)
+
+    kfolds = StratifiedKFold(n_splits=5, shuffle=True, random_state=7)
+    scoring = ['roc_auc', 'precision', 'recall']
+    cv_results = cross_validate(clf, X_bin, y_bin, cv=kfolds, scoring=scoring)
+
+    auc_mean = cv_results['test_roc_auc'].mean()
+    auc_std  = cv_results['test_roc_auc'].std()
+    aucs.append([layer, auc_mean, auc_std])
+
+    pre_mean = cv_results['test_precision'].mean()
+    pre_std  = cv_results['test_precision'].std()
+    rec_mean = cv_results['test_recall'].mean()
+    rec_std  = cv_results['test_recall'].std()
+
+    print(f"Layer {layer:>2}: "
+        f"AUC {auc_mean:.3f} ± {auc_std:.3f} | "
+        f"PRE {pre_mean:.3f} ± {pre_std:.3f} | "
+        f"REC {rec_mean:.3f} ± {rec_std:.3f}")
+
+plot_layer_performance(aucs)
+
+
+# REF ANALYSIS
+print("\nPerforming Stratified K-Fold Cross-Validation for each layer on REF EMBEDDINGS...")
 layers = [1, 3, 5, 9, 12, 15, 18, 22, 25, 28]  # 0..28 indexing
 for layer in layers:
     E = payload["embeddings_by_layer"][layer]  # shape (2N, 1024), torch.Tensor
 
-    ref = E[:n].numpy()      # (N, 1024)
-    alt = E[n:].numpy()      # (N, 1024)
+    X = E[:n].numpy()      # (N, 1024)
 
-    X = alt - ref            # (N, 1024)
+    # Binary classification: Class 1 vs Class 5
+    mask = np.isin(labels, ["Class 1", "Class 5"])
+    X_bin = X[mask]
+    y_bin = (labels[mask] == "Class 5").astype(int)
 
-    kfolds = StratifiedKFold(n_splits=10, shuffle=True, random_state=7)
+    kfolds = StratifiedKFold(n_splits=5, shuffle=True, random_state=7)
+    auc = cross_val_score(clf, X_bin, y_bin, cv=kfolds, scoring="roc_auc")
+    print(f"Layer {layer:>2}: ROC-AUC {auc.mean():.3f} +/- {auc.std():.3f}")
 
-    for i, (train_index, test_index) in enumerate(kfolds.split(X, labels)):
-        print(f"Fold {i}:")
-        print(f"  Train: index={train_index}")
-        print(f"  Test:  index={test_index}")
+
+# ALT ANALYSIS
+print("\nPerforming Stratified K-Fold Cross-Validation for each layer on ALT EMBEDDINGS...")
+layers = [1, 3, 5, 9, 12, 15, 18, 22, 25, 28]  # 0..28 indexing
+for layer in layers:
+    E = payload["embeddings_by_layer"][layer]  # shape (2N, 1024), torch.Tensor
+
+    X = E[n:].numpy()      # (N, 1024)
+
+    # Binary classification: Class 1 vs Class 5
+    mask = np.isin(labels, ["Class 1", "Class 5"])
+    X_bin = X[mask]
+    y_bin = (labels[mask] == "Class 5").astype(int)
+
+    kfolds = StratifiedKFold(n_splits=5, shuffle=True, random_state=7)
+    auc = cross_val_score(clf, X_bin, y_bin, cv=kfolds, scoring="roc_auc")
+    print(f"Layer {layer:>2}: ROC-AUC {auc.mean():.3f} +/- {auc.std():.3f}")
+
+    
