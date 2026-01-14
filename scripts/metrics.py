@@ -2,9 +2,6 @@ import matplotlib.pyplot as plt
 
 def plot_layer_performance(results_list, label="Delta Embeddings", title="ClinVar Pathogenicity Prediction per Layer"):
     plt.figure(figsize=(10, 6))
-    
-    plot_color = colors.get(label, '#333333') 
-
     results_sorted = sorted(results_list, key=lambda x: x[0])
 
     layers = [x[0] for x in results_sorted]
@@ -12,8 +9,7 @@ def plot_layer_performance(results_list, label="Delta Embeddings", title="ClinVa
     stds   = [x[2] for x in results_sorted]
         
     plt.errorbar(layers, means, yerr=stds, label=label, 
-                 marker='o', capsize=5, linestyle='-', 
-                 color=plot_color, linewidth=2)
+                 marker='o', capsize=5, linestyle='-', linewidth=2)
 
     plt.title(title, fontsize=14, fontweight='bold')
     plt.xlabel("Model Layer", fontsize=12)
@@ -30,5 +26,3 @@ def plot_layer_performance(results_list, label="Delta Embeddings", title="ClinVa
     plt.show()
 
 
-
-def plot_umap_
