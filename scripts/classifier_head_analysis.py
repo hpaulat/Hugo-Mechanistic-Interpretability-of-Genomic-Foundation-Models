@@ -118,5 +118,4 @@ for layer in layers:
     kfolds = StratifiedKFold(n_splits=5, shuffle=True, random_state=7)
     auc = cross_val_score(clf, X_bin, y_bin, cv=kfolds, scoring="roc_auc")
     print(f"Layer {layer:>2}: ROC-AUC {auc.mean():.3f} +/- {auc.std():.3f}")
-
     
