@@ -95,7 +95,6 @@ t0 = time.time()
 
 # outputs.attentions is a tuple length = num_layers
 # Each element: (B, num_heads, L, L)
-# NOTE: indexing in HF: attentions[0] corresponds to layer 0 (first transformer layer)
 layers_str = ",".join(map(str, layers))
 print(f"  - layers requested: {layers_str}")
 print(f"  - head_mode: {head_mode}")

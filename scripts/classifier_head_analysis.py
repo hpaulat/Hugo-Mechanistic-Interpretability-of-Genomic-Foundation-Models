@@ -90,7 +90,7 @@ plot_layer_performance(aucs, pres, recs)
 
 
 
-# REF ANALYSIS
+# REF and ALT ANALYSIS
 """
 print("\nPerforming Stratified K-Fold Cross-Validation for each layer on REF EMBEDDINGS...")
 layers = [1, 3, 5, 9, 12, 15, 18, 22, 25, 28]  # 0..28 indexing

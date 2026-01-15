@@ -23,7 +23,7 @@ os.chdir(GENOMIC_FM_DIR)
 
 from src.dataloader.data_wrapper import RealClinVar
 
-# --- Load data ---
+# load data
 Seq_length = 3000   # length of sequences to extract from ClinVar records
 
 print("\n[2/6] Loading ClinVar data via RealClinVar...")
@@ -34,7 +34,7 @@ print("  - Loaded successfully.")
 print(f"  - data type: {type(data)}")
 print(f"  - number of records: {len(data)}")
 
-# --- Retrieve Sequences and Print Information ---
+# retrieve sequences and print information
 print("\n[3/6] Extracting Reference/Alternative sequences and labels...")
 lc_reference_sequences = [record[0][0] for record in data]
 lc_alternative_sequences = [record[0][1] for record in data]
@@ -45,7 +45,7 @@ print(f"  - unique labels: {unique_labels}")
 print(f"  - number of reference sequences: {len(lc_reference_sequences)}")
 print(f"  - number of alternative sequences: {len(lc_alternative_sequences)}")
 
-# --- Import Tokenizer and Model ---
+# import tokenizer and model
 print("\n[4/6] Loading tokenizer + model...")
 MODEL_NAME = "InstaDeepAI/nucleotide-transformer-v2-500m-multi-species"
 
