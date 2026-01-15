@@ -42,7 +42,7 @@ n = len(labels)  # number of variants
 # Construct Logistic Regression Classifier Pipeline
 clf = Pipeline([
     ("scaler", StandardScaler()),
-    #("PCA", PCA(n_components=50)),  # optional: reduce dimensionality
+    ("PCA", PCA(n_components=50)),  # optional: reduce dimensionality
     ("lr", LogisticRegression(max_iter=5000, class_weight="balanced"))
 ])
 
@@ -50,6 +50,8 @@ clf = Pipeline([
 print("\nPerforming Stratified K-Fold Cross-Validation for each layer on DELTA EMBEDDINGS...")
 layers = [1, 3, 5, 9, 12, 15, 18, 22, 25, 28]  # 0..28 indexing
 aucs = []
+pres = []
+recs = []
 
 for layer in layers:
     E = payload["embeddings_by_layer"][layer]  # shape (2N, 1024), torch.Tensor
@@ -73,18 +75,23 @@ for layer in layers:
 
     pre_mean = cv_results['test_precision'].mean()
     pre_std  = cv_results['test_precision'].std()
+    pres.append([layer, pre_mean, pre_std])
+
     rec_mean = cv_results['test_recall'].mean()
     rec_std  = cv_results['test_recall'].std()
+    recs.append([layer, rec_mean, rec_std])
 
     print(f"Layer {layer:>2}: "
         f"AUC {auc_mean:.3f} ± {auc_std:.3f} | "
         f"PRE {pre_mean:.3f} ± {pre_std:.3f} | "
         f"REC {rec_mean:.3f} ± {rec_std:.3f}")
 
-plot_layer_performance(aucs)
+plot_layer_performance(aucs, pres, recs)
+
 
 
 # REF ANALYSIS
+"""
 print("\nPerforming Stratified K-Fold Cross-Validation for each layer on REF EMBEDDINGS...")
 layers = [1, 3, 5, 9, 12, 15, 18, 22, 25, 28]  # 0..28 indexing
 for layer in layers:
@@ -118,4 +125,4 @@ for layer in layers:
     kfolds = StratifiedKFold(n_splits=5, shuffle=True, random_state=7)
     auc = cross_val_score(clf, X_bin, y_bin, cv=kfolds, scoring="roc_auc")
     print(f"Layer {layer:>2}: ROC-AUC {auc.mean():.3f} +/- {auc.std():.3f}")
-    
+"""

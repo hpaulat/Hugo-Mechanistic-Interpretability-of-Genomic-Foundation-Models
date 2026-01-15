@@ -11,8 +11,8 @@ import torch
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 
-seq_len_bp = 501
-layers = [1,9,18,28]
+seq_len_bp = 3000
+layers = [1,9,18,22, 28]
 batch_size = 2
 max_samples = 20
 head_mode = "mean"
